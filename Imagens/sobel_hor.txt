@@ -1,0 +1,6 @@
+# filter=[x,x,x; y,y,y; z, z, z]
+# pivot=[x, y] matrix's x and y
+#
+filter=[-1, 0, 1; -2, 0, 2; -1, 0, 1]
+pivot=[1,1]
+#offset=50
