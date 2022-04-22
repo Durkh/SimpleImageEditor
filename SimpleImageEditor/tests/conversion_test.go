@@ -2,35 +2,26 @@ package tests
 
 import (
 	image "SimpleImageEditor/image"
-	pixelColor "SimpleImageEditor/pixel"
+	"SimpleImageEditor/pixel"
 	"errors"
 	"fmt"
-	"golang.org/x/image/tiff"
-	"os"
+	"math"
 	"sync"
 	"testing"
 )
 
 func TestYIQ(T *testing.T) {
 
-	f, err := os.Open("../../Imagens/testpat.1k.color.tif")
-	if err != nil {
+	im := image.Image{}
+	if err := im.Open("../../Imagens/testpat.1k.color.tif"); err != nil {
 		T.Error(err)
-	}
-
-	orig, err := tiff.Decode(f)
-	if err != nil {
-		T.Error(err)
-	}
-
-	im := image.Image{
-		Image:       orig,
-		PixelFormat: image.PixelFormatRGB,
+		panic(err)
 	}
 
 	YIQ, err := im.YIQ()
 	if err != nil {
 		T.Error(err)
+		panic(err)
 	}
 
 	wg := sync.WaitGroup{}
@@ -45,20 +36,20 @@ func TestYIQ(T *testing.T) {
 				defer wg.Done()
 
 				for y := 0; y < YIQ.Image.Bounds().Max.Y; y++ {
-					old := pixelColor.YIQModel(orig.At(x, y))
+					old := image.YIQModel(im.Image.At(x, y))
 
-					if n, o := YIQ.Image.At(x, y).(pixelColor.YIQColor).Y, old.(pixelColor.YIQColor).Y; n != o {
-						T.Error(errors.New(fmt.Sprintf("R diferente em (%d, %d),\t\tesperado: %f, obtido: %f",
+					if n, o := YIQ.Image.At(x, y).(pixel.YIQ).Y, old.(pixel.YIQ).Y; n != o {
+						T.Error(errors.New(fmt.Sprintf("Y diferente em (%d, %d),\t\tesperado: %f, obtido: %f",
 							x, y, o, n)))
 					}
 
-					if n, o := YIQ.Image.At(x, y).(pixelColor.YIQColor).I, old.(pixelColor.YIQColor).I; n != o {
-						T.Error(errors.New(fmt.Sprintf("G diferente em (%d, %d),\t\tesperado: %f, obtido: %f",
+					if n, o := YIQ.Image.At(x, y).(pixel.YIQ).I, old.(pixel.YIQ).I; n != o {
+						T.Error(errors.New(fmt.Sprintf("I diferente em (%d, %d),\t\tesperado: %f, obtido: %f",
 							x, y, o, n)))
 					}
 
-					if n, o := YIQ.Image.At(x, y).(pixelColor.YIQColor).Q, old.(pixelColor.YIQColor).Q; n != o {
-						T.Error(errors.New(fmt.Sprintf("B diferente em (%d, %d),\t\tesperado: %f, obtido: %f",
+					if n, o := YIQ.Image.At(x, y).(pixel.YIQ).Q, old.(pixel.YIQ).Q; n != o {
+						T.Error(errors.New(fmt.Sprintf("Q diferente em (%d, %d),\t\tesperado: %f, obtido: %f",
 							x, y, o, n)))
 					}
 				}
@@ -73,6 +64,7 @@ func TestYIQ(T *testing.T) {
 	RGB, err := YIQ.RGB()
 	if err != nil {
 		T.Error(err)
+		panic(err)
 	}
 
 	wg.Add(RGB.Image.Bounds().Max.X)
@@ -82,11 +74,11 @@ func TestYIQ(T *testing.T) {
 
 			var x = i
 
-			func() {
+			go func() {
 				defer wg.Done()
 
 				for y := 0; y < RGB.Image.Bounds().Max.Y; y++ {
-					oR, oG, oB, _ := orig.At(x, y).RGBA()
+					oR, oG, oB, _ := im.Image.At(x, y).RGBA()
 					shiftOrigR, shiftOrigG, shiftOrigB := oR>>8, oG>>8, oB>>8
 					nR, nG, nB, _ := RGB.Image.At(x, y).RGBA()
 					shiftNewR, shiftNewG, shiftNewB := nR>>8, nG>>8, nB>>8
@@ -110,4 +102,106 @@ func TestYIQ(T *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+func TestNegative(T *testing.T) {
+
+	im := image.Image{}
+	if err := im.Open("../../Imagens/testpat.1k.color.tif"); err != nil {
+		T.Error(err)
+		panic(err)
+	}
+
+	neg, err := im.Negative()
+	if err != nil {
+		T.Error(err)
+		panic(err)
+	}
+	wg := sync.WaitGroup{}
+
+	wg.Add(neg.Image.Bounds().Max.X)
+	for i := 0; i < neg.Image.Bounds().Max.X; i++ {
+
+		func() {
+
+			var x = i
+
+			go func() {
+				defer wg.Done()
+
+				for y := 0; y < neg.Image.Bounds().Max.Y; y++ {
+					oR, oG, oB, _ := im.Image.At(x, y).RGBA()
+					shiftOrigR, shiftOrigG, shiftOrigB := oR>>8, oG>>8, oB>>8
+					nR, nG, nB, _ := neg.Image.At(x, y).RGBA()
+					shiftNewR, shiftNewG, shiftNewB := nR>>8, nG>>8, nB>>8
+
+					if 255-shiftOrigR != shiftNewR {
+						T.Error(errors.New(fmt.Sprintf("R diferente em (%d, %d),\t\tesperado: %d, obtido: %d", x, y, 255-shiftOrigR, shiftNewR)))
+					}
+
+					if 255-shiftOrigG != shiftNewG {
+						T.Error(errors.New(fmt.Sprintf("G diferente em (%d, %d),\t\tesperado: %d, obtido: %d", x, y, 255-shiftOrigG, shiftNewG)))
+					}
+
+					if 255-shiftOrigB != shiftNewB {
+						T.Error(errors.New(fmt.Sprintf("B diferente em (%d, %d),\t\tesperado: %d, obtido: %d", x, y, 255-shiftOrigB, shiftNewB)))
+					}
+				}
+			}()
+
+		}()
+
+	}
+
+	wg.Wait()
+
+	YIQ, err := im.YIQ()
+	if err != nil {
+		T.Error(err)
+		panic(err)
+	}
+
+	neg, err = YIQ.Negative()
+	if err != nil {
+		T.Error(err)
+		panic(err)
+	}
+
+	wg.Add(YIQ.Image.Bounds().Max.X)
+	for i := 0; i < YIQ.Image.Bounds().Max.X; i++ {
+
+		func() {
+
+			var x = i
+
+			go func() {
+				defer wg.Done()
+
+				for y := 0; y < YIQ.Image.Bounds().Max.Y; y++ {
+					old := image.YIQModel(YIQ.Image.At(x, y))
+					newI := neg.Image.At(x, y)
+
+					if n, o := uint(math.Round(newI.(pixel.YIQ).Y)), uint(math.Round(255-old.(pixel.YIQ).Y)); n != o {
+						T.Error(errors.New(fmt.Sprintf("Y diferente em (%d, %d),\t\tesperado: %d, obtido: %d",
+							x, y, 255-o, n)))
+					}
+
+					if n, o := int(math.Round(neg.Image.At(x, y).(pixel.YIQ).I)), int(math.Round(old.(pixel.YIQ).I)); n != o {
+						T.Error(errors.New(fmt.Sprintf("I diferente em (%d, %d),\t\tesperado: %d, obtido: %d",
+							x, y, 255-o, n)))
+					}
+
+					if n, o := int(math.Round(neg.Image.At(x, y).(pixel.YIQ).Q)), int(math.Round(old.(pixel.YIQ).Q)); n != o {
+						T.Error(errors.New(fmt.Sprintf("Q diferente em (%d, %d),\t\tesperado: %d, obtido: %d",
+							x, y, 255-o, n)))
+					}
+				}
+			}()
+
+		}()
+
+	}
+
+	wg.Wait()
+
 }

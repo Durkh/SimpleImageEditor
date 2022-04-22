@@ -1,12 +1,14 @@
 package egdImage
 
 import (
-	pixelColor "SimpleImageEditor/pixel"
+	"SimpleImageEditor/pixel"
 	"errors"
 	"golang.org/x/image/tiff"
 	im "image"
+	"image/color"
 	"image/jpeg"
 	"image/png"
+	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -62,11 +64,33 @@ func (i *Image) Open(path string) (err error) {
 		return errors.New("unknown format")
 	}
 
+	old := i.Image
+	bounds := i.Image.Bounds()
+	i.Image = NewRGB(bounds.Max.X, bounds.Max.Y)
+
+	convert(i.Image.Bounds(), func(x int, y int) {
+		i.Image.(*RGB).Set(x, y, pixel.RGB{C: old.At(x, y).(color.RGBA)})
+	})
+
 	i.Name = strings.Split(filepath.Base(path), ".")[0]
 
 	i.PixelFormat = PixelFormatRGB
 
 	return
+}
+
+func (i *Image) setter() func(int, int, color.Color) {
+
+	switch i.PixelFormat {
+	case PixelFormatYIQ:
+		return i.Image.(*YIQ).Set
+	case PixelFormatRGB:
+		return i.Image.(*RGB).Set
+	default:
+		log.Fatalf("error on image setter: %v", errors.New("invalid image pixel type"))
+	}
+
+	return nil
 }
 
 func (i Image) YIQ() (Image, error) {
@@ -79,7 +103,7 @@ func (i Image) YIQ() (Image, error) {
 		bounds = i.Image.Bounds()
 
 		res = Image{
-			Image:       pixelColor.NewYIQ(bounds.Max.X, bounds.Max.Y),
+			Image:       NewYIQ(bounds.Max.X, bounds.Max.Y),
 			Name:        i.Name,
 			PixelFormat: PixelFormatYIQ,
 			ImageFormat: ImageFormatPNG,
@@ -88,7 +112,7 @@ func (i Image) YIQ() (Image, error) {
 		cm = res.Image.ColorModel()
 	)
 
-	convert(bounds, func(x int, y int) { res.Image.(*pixelColor.YIQ).Set(x, y, cm.Convert(i.Image.At(x, y))) })
+	convert(bounds, func(x int, y int) { res.setter()(x, y, cm.Convert(i.Image.At(x, y))) })
 
 	return res, nil
 }
@@ -103,7 +127,7 @@ func (i Image) RGB() (Image, error) {
 		bounds = i.Image.Bounds()
 
 		res = Image{
-			Image:       im.NewRGBA(im.Rect(0, 0, bounds.Max.X, bounds.Max.Y)),
+			Image:       NewRGB(bounds.Max.X, bounds.Max.Y),
 			Name:        i.Name,
 			PixelFormat: PixelFormatRGB,
 			ImageFormat: ImageFormatPNG,
@@ -112,9 +136,36 @@ func (i Image) RGB() (Image, error) {
 		cm = res.Image.ColorModel()
 	)
 
-	convert(bounds, func(x, y int) { res.Image.(*im.RGBA).Set(x, y, cm.Convert(i.Image.At(x, y))) })
+	convert(bounds, func(x, y int) { res.setter()(x, y, cm.Convert(i.Image.At(x, y))) })
 
 	return res, nil
+}
+
+func (i Image) Negative() (Image, error) {
+
+	var (
+		bounds = i.Image.Bounds()
+		image  im.Image
+	)
+
+	switch i.PixelFormat {
+	case PixelFormatYIQ:
+		image = NewYIQ(bounds.Max.X, bounds.Max.Y)
+	case PixelFormatRGB:
+		image = NewRGB(bounds.Max.X, bounds.Max.Y)
+	}
+
+	var res = Image{
+		Image:       image,
+		Name:        i.Name,
+		PixelFormat: i.PixelFormat,
+		ImageFormat: ImageFormatPNG,
+	}
+
+	convert(bounds, func(x, y int) { res.setter()(x, y, i.Image.At(x, y).(pixel.Color).Negative()) })
+
+	return res, nil
+
 }
 
 func convert(bounds im.Rectangle, closure func(int, int)) {
@@ -127,7 +178,7 @@ func convert(bounds im.Rectangle, closure func(int, int)) {
 
 			var y = j
 
-			func() {
+			go func() {
 				defer wg.Done()
 
 				for x := bounds.Min.X; x <= bounds.Max.X; x++ {
@@ -139,7 +190,6 @@ func convert(bounds im.Rectangle, closure func(int, int)) {
 	}
 
 	wg.Wait()
-
 }
 
 func SaveImage(im Image) error {
