@@ -135,16 +135,16 @@ func TestNegative(T *testing.T) {
 					nR, nG, nB, _ := neg.Image.At(x, y).RGBA()
 					shiftNewR, shiftNewG, shiftNewB := nR>>8, nG>>8, nB>>8
 
-					if 255-shiftOrigR != shiftNewR {
-						T.Error(errors.New(fmt.Sprintf("R diferente em (%d, %d),\t\tesperado: %d, obtido: %d", x, y, 255-shiftOrigR, shiftNewR)))
+					if pixel.Max8BitPixelColor-shiftOrigR != shiftNewR {
+						T.Error(errors.New(fmt.Sprintf("R diferente em (%d, %d),\t\tesperado: %d, obtido: %d", x, y, pixel.Max8BitPixelColor-shiftOrigR, shiftNewR)))
 					}
 
-					if 255-shiftOrigG != shiftNewG {
-						T.Error(errors.New(fmt.Sprintf("G diferente em (%d, %d),\t\tesperado: %d, obtido: %d", x, y, 255-shiftOrigG, shiftNewG)))
+					if pixel.Max8BitPixelColor-shiftOrigG != shiftNewG {
+						T.Error(errors.New(fmt.Sprintf("G diferente em (%d, %d),\t\tesperado: %d, obtido: %d", x, y, pixel.Max8BitPixelColor-shiftOrigG, shiftNewG)))
 					}
 
-					if 255-shiftOrigB != shiftNewB {
-						T.Error(errors.New(fmt.Sprintf("B diferente em (%d, %d),\t\tesperado: %d, obtido: %d", x, y, 255-shiftOrigB, shiftNewB)))
+					if pixel.Max8BitPixelColor-shiftOrigB != shiftNewB {
+						T.Error(errors.New(fmt.Sprintf("B diferente em (%d, %d),\t\tesperado: %d, obtido: %d", x, y, pixel.Max8BitPixelColor-shiftOrigB, shiftNewB)))
 					}
 				}
 			}()
@@ -181,19 +181,19 @@ func TestNegative(T *testing.T) {
 					old := image.YIQModel(YIQ.Image.At(x, y))
 					newI := neg.Image.At(x, y)
 
-					if n, o := uint(math.Round(newI.(pixel.YIQ).Y)), uint(math.Round(255-old.(pixel.YIQ).Y)); n != o {
+					if n, o := uint(math.Round(newI.(pixel.YIQ).Y)), uint(math.Round(pixel.Max8BitPixelColor-old.(pixel.YIQ).Y)); n != o {
 						T.Error(errors.New(fmt.Sprintf("Y diferente em (%d, %d),\t\tesperado: %d, obtido: %d",
-							x, y, 255-o, n)))
+							x, y, pixel.Max8BitPixelColor-o, n)))
 					}
 
 					if n, o := int(math.Round(neg.Image.At(x, y).(pixel.YIQ).I)), int(math.Round(old.(pixel.YIQ).I)); n != o {
 						T.Error(errors.New(fmt.Sprintf("I diferente em (%d, %d),\t\tesperado: %d, obtido: %d",
-							x, y, 255-o, n)))
+							x, y, pixel.Max8BitPixelColor-o, n)))
 					}
 
 					if n, o := int(math.Round(neg.Image.At(x, y).(pixel.YIQ).Q)), int(math.Round(old.(pixel.YIQ).Q)); n != o {
 						T.Error(errors.New(fmt.Sprintf("Q diferente em (%d, %d),\t\tesperado: %d, obtido: %d",
-							x, y, 255-o, n)))
+							x, y, pixel.Max8BitPixelColor-o, n)))
 					}
 				}
 			}()
