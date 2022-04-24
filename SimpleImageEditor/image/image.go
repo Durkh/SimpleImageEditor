@@ -157,7 +157,7 @@ func (i Image) Negative() (Image, error) {
 
 	var res = Image{
 		Image:       image,
-		Name:        i.Name,
+		Name:        i.Name + "_NEG",
 		PixelFormat: i.PixelFormat,
 		ImageFormat: ImageFormatPNG,
 	}
@@ -194,7 +194,17 @@ func convert(bounds im.Rectangle, closure func(int, int)) {
 
 func SaveImage(im Image) error {
 
-	f, err := os.Create(im.Name + "_YIQ_" + strconv.Itoa(int(time.Now().Unix())) + ".png")
+	var suffix string
+
+	switch im.PixelFormat {
+	case PixelFormatYIQ:
+		suffix = "_YIQ_"
+	case PixelFormatRGB:
+		suffix = "_RGB_"
+
+	}
+
+	f, err := os.Create(im.Name + suffix + strconv.Itoa(int(time.Now().Unix())) + ".png")
 	if err != nil {
 		return err
 	}
