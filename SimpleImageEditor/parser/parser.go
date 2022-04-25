@@ -81,6 +81,16 @@ func parseToken(tok *Token) (map[string]interface{}, error) {
 			m int
 			n int
 		}{x, y}
+	case tokenOffset:
+
+		var offset int64
+
+		_, err = fmt.Sscanf(tok.value, "offset=%d", &offset)
+		if err != nil {
+			return nil, err
+		}
+
+		res["offset"] = offset
 	case tokenError:
 		return nil, errors.New(tok.value)
 	}

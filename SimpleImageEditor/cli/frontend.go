@@ -14,7 +14,7 @@ func Run() {
 	}
 
 	var (
-		args       = os.Args[2:]
+		args       = os.Args[1:]
 		err        error
 		multipart  bool
 		operations []rune
@@ -32,7 +32,7 @@ func Run() {
 
 		switch args[i] {
 		case "-I":
-			if i+1 < len(args) {
+			if i+1 > len(args) {
 				Exit("error: digite o caminho da imagem")
 			}
 
@@ -46,7 +46,7 @@ func Run() {
 		case "-F":
 			operations = append(operations, 'F')
 
-			if i+1 < len(args) {
+			if i+1 > len(args) {
 				Exit("error: digite o caminho do filtro")
 			}
 

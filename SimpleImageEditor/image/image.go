@@ -74,7 +74,7 @@ func (i *Image) Open(path string) (err error) {
 	i.Image = NewRGB(bounds.Max.X, bounds.Max.Y)
 
 	convert(i.Image.Bounds(), func(x int, y int) {
-		i.Image.(*RGB).Set(x, y, pixel.RGB{C: old.At(x, y).(color.RGBA)})
+		i.Image.(*RGB).Set(x, y, pixel.RGB{C: color.RGBAModel.Convert(old.At(x, y)).(color.RGBA)})
 	})
 
 	i.Name = strings.Split(filepath.Base(path), ".")[0]
@@ -162,7 +162,7 @@ func (i Image) Negative() (Image, error) {
 
 	var res = Image{
 		Image:       image,
-		Name:        i.Name + "_NEG",
+		Name:        i.Name + "_neg",
 		PixelFormat: i.PixelFormat,
 		ImageFormat: ImageFormatPNG,
 	}
@@ -180,7 +180,7 @@ func (i Image) Filter(filterArgs map[string]interface{}) (Image, error) {
 
 		res = Image{
 			Image:       NewYIQ(bounds.Max.X, bounds.Max.Y),
-			Name:        i.Name,
+			Name:        i.Name + "_filter",
 			PixelFormat: PixelFormatYIQ,
 			ImageFormat: ImageFormatPNG,
 		}
@@ -211,6 +211,8 @@ func (i Image) Filter(filterArgs map[string]interface{}) (Image, error) {
 
 				*ch = mat.Dot(v, filterArgs["filter"].(parser.Filter).Filter)
 
+				*ch += float64(filterArgs["offset"].(uint64))
+
 				if *ch < 0 {
 					*ch = 0
 				} else if r > 0xff {
@@ -229,9 +231,9 @@ func (i Image) Filter(filterArgs map[string]interface{}) (Image, error) {
 
 		res.Image.(*RGB).Set(x, y, pixel.RGB{
 			C: color.RGBA{
-				R: uint8(r),
-				G: uint8(g),
-				B: uint8(b),
+				R: uint8(math.Round(r)),
+				G: uint8(math.Round(g)),
+				B: uint8(math.Round(b)),
 				A: 0xff,
 			},
 		})
@@ -252,7 +254,7 @@ func (i Image) Mean(filter parser.Filter) (Image, error) {
 
 		res = Image{
 			Image:       NewYIQ(bounds.Max.X, bounds.Max.Y),
-			Name:        i.Name,
+			Name:        i.Name + "_mean",
 			PixelFormat: PixelFormatYIQ,
 			ImageFormat: ImageFormatPNG,
 		}
@@ -333,20 +335,28 @@ func makeVector(x, y int, bounds im.Rectangle, pivotX, pivotY uint, filter parse
 // if image is YIQ convert to RGB
 func SaveImage(im Image) error {
 
-	var suffix string
+	var (
+		suffix string
+		err    error
+	)
 
 	switch im.PixelFormat {
 	case PixelFormatYIQ:
-		suffix = "_YIQ_"
+		suffix = "_YIQ"
+		im, err = im.RGB()
+		if err != nil {
+			return err
+		}
 	case PixelFormatRGB:
-		suffix = "_RGB_"
-
+		suffix = "_RGB"
 	}
 
-	f, err := os.Create(im.Name + suffix + strconv.Itoa(int(time.Now().Unix())) + ".png")
+	f, err := os.Create(im.Name + suffix + "_" + strconv.Itoa(int(time.Now().Unix())) + ".png")
 	if err != nil {
 		return err
 	}
+
+	defer f.Close()
 
 	err = png.Encode(f, im.Image)
 	if err != nil {

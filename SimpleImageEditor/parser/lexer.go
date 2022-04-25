@@ -15,6 +15,7 @@ const (
 	tokenComment tokenType = iota
 	tokenFilter
 	tokenPivot
+	tokenOffset
 	tokenEOF
 	tokenError
 )
@@ -96,6 +97,8 @@ func NextToken() (tok *Token) {
 
 	} else if ok, err = regexp.MatchString(`^pivot=\[\d+,\d+]$`, fragment); err == nil && ok {
 		tok.tokenType = tokenPivot
+	} else if ok, err = regexp.MatchString(`^offset=\d+$`, fragment); err == nil && ok {
+		tok.tokenType = tokenOffset
 	} else if fragment == "" {
 		tok.tokenType = tokenEOF
 	} else {
