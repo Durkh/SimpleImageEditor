@@ -2,6 +2,7 @@ package parser
 
 import (
 	"bufio"
+	"fmt"
 	"os"
 )
 
@@ -19,8 +20,11 @@ func GetConfigReader(filename string) *config {
 	)
 
 	if f, err = os.Open(filename); err != nil {
-
+		fmt.Printf("%v\n", err.Error())
+		os.Exit(1)
 	}
+
+	defer f.Close()
 
 	cfg.reader = bufio.NewReaderSize(f, 2048)
 	info, _ := f.Stat()

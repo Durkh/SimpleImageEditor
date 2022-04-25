@@ -1,14 +1,17 @@
 package egdImage
 
 import (
+	"SimpleImageEditor/parser"
 	"SimpleImageEditor/pixel"
 	"errors"
 	"golang.org/x/image/tiff"
+	"gonum.org/v1/gonum/mat"
 	im "image"
 	"image/color"
 	"image/jpeg"
 	"image/png"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -45,6 +48,8 @@ func (i *Image) Open(path string) (err error) {
 	if f, err = os.Open(path); err != nil {
 		return err
 	}
+
+	defer f.Close()
 
 	switch filepath.Ext(path) {
 	case ".tif":
@@ -168,6 +173,111 @@ func (i Image) Negative() (Image, error) {
 
 }
 
+func (i Image) Filter(filterArgs map[string]interface{}) (Image, error) {
+
+	var (
+		bounds = i.Image.Bounds()
+
+		res = Image{
+			Image:       NewYIQ(bounds.Max.X, bounds.Max.Y),
+			Name:        i.Name,
+			PixelFormat: PixelFormatYIQ,
+			ImageFormat: ImageFormatPNG,
+		}
+
+		pivot = filterArgs["pivot"].(struct {
+			m int
+			n int
+		})
+	)
+
+	convert(bounds, func(x int, y int) {
+
+		var (
+			vectorR, vectorG, vectorB = makeVector(x, y, bounds, uint(pivot.m), uint(pivot.n),
+				filterArgs["filter"].(parser.Filter),
+				func(channels [3][]float64, xIt, yIt int) {
+					channels[0][xIt+yIt] = float64(i.Image.At(x, y).(pixel.RGB).C.R)
+					channels[1][xIt+yIt] = float64(i.Image.At(x, y).(pixel.RGB).C.G)
+					channels[2][xIt+yIt] = float64(i.Image.At(x, y).(pixel.RGB).C.B)
+				})
+
+			r, g, b float64
+
+			wg = sync.WaitGroup{}
+
+			apply = func(ch *float64, v *mat.VecDense) {
+				defer wg.Done()
+
+				*ch = mat.Dot(v, filterArgs["filter"].(parser.Filter).Filter)
+
+				if *ch < 0 {
+					*ch = 0
+				} else if r > 0xff {
+					*ch = 0xff
+				}
+			}
+		)
+
+		wg.Add(3)
+
+		go apply(&r, vectorR)
+		go apply(&g, vectorG)
+		go apply(&b, vectorB)
+
+		wg.Wait()
+
+		res.Image.(*RGB).Set(x, y, pixel.RGB{
+			C: color.RGBA{
+				R: uint8(r),
+				G: uint8(g),
+				B: uint8(b),
+				A: 0xff,
+			},
+		})
+	})
+
+	return res, nil
+}
+
+func (i Image) Mean(filter parser.Filter) (Image, error) {
+
+	var (
+		//pivot is the middle element
+		//the first element in the array is pivot-pivot and the last one is pivot+pivot
+		pivotX = uint(math.Floor(float64(filter.Size.R) / float64(2)))
+		pivotY = uint(math.Floor(float64(filter.Size.C) / float64(2)))
+
+		bounds = i.Image.Bounds()
+
+		res = Image{
+			Image:       NewYIQ(bounds.Max.X, bounds.Max.Y),
+			Name:        i.Name,
+			PixelFormat: PixelFormatYIQ,
+			ImageFormat: ImageFormatPNG,
+		}
+	)
+
+	convert(bounds, func(x int, y int) {
+
+		var (
+			orig         = i.Image.At(x, y).(pixel.YIQ)
+			vector, _, _ = makeVector(x, y, bounds, pivotX, pivotY, filter,
+				func(channels [3][]float64, xIt, yIt int) {
+					channels[0][xIt+yIt] = i.Image.At(x, y).(pixel.YIQ).Y
+				})
+		)
+
+		res.Image.(*YIQ).Set(x, y, pixel.YIQ{
+			Y: mat.Dot(vector, filter.Filter),
+			I: orig.I,
+			Q: orig.Q,
+		})
+	})
+
+	return res, nil
+}
+
 func convert(bounds im.Rectangle, closure func(int, int)) {
 
 	wg := sync.WaitGroup{}
@@ -192,6 +302,35 @@ func convert(bounds im.Rectangle, closure func(int, int)) {
 	wg.Wait()
 }
 
+func makeVector(x, y int, bounds im.Rectangle, pivotX, pivotY uint, filter parser.Filter, assigner func([3][]float64, int, int)) (*mat.VecDense, *mat.VecDense, *mat.VecDense) {
+
+	var (
+		imageValues [3][]float64
+	)
+
+	imageValues[0] = make([]float64, filter.Size.R*filter.Size.C)
+	imageValues[1] = make([]float64, filter.Size.R*filter.Size.C)
+	imageValues[2] = make([]float64, filter.Size.R*filter.Size.C)
+
+	for xIt := x - int(pivotX); xIt <= x+int(pivotX); xIt++ {
+		for yIt := y - int(pivotY); yIt <= y+int(pivotY); yIt++ {
+			if xIt < bounds.Min.X || xIt > bounds.Max.X || yIt < bounds.Min.Y || yIt > bounds.Max.Y {
+				imageValues[0][xIt+yIt] = 0
+				imageValues[1][xIt+yIt] = 0
+				imageValues[2][xIt+yIt] = 0
+				continue
+			}
+
+			assigner(imageValues, xIt, yIt)
+
+		}
+	}
+
+	return mat.NewVecDense(len(imageValues[0]), imageValues[0]), mat.NewVecDense(len(imageValues[0]), imageValues[0]), mat.NewVecDense(len(imageValues[0]), imageValues[0])
+}
+
+//TODO adjust
+// if image is YIQ convert to RGB
 func SaveImage(im Image) error {
 
 	var suffix string

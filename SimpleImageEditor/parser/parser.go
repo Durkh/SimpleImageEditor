@@ -2,6 +2,7 @@ package parser
 
 import (
 	"errors"
+	"fmt"
 	"golang.org/x/sync/errgroup"
 	"gonum.org/v1/gonum/mat"
 	"log"
@@ -43,7 +44,7 @@ func ParseFileConfig(path string) (args map[string]interface{}) {
 	if piv, fil := pivot.(struct {
 		m int
 		n int
-	}), filter.(Filter).size; uint64(piv.m) > fil.r || uint64(piv.n) > fil.c {
+	}), filter.(Filter).Size; uint64(piv.m) > fil.R || uint64(piv.n) > fil.C {
 		panic("filtro inválido")
 	}
 
@@ -88,11 +89,11 @@ func parseToken(tok *Token) (map[string]interface{}, error) {
 }
 
 type Filter struct {
-	size struct {
-		r uint64
-		c uint64
+	Size struct {
+		R uint64
+		C uint64
 	}
-	filter *mat.VecDense
+	Filter *mat.VecDense
 }
 
 //TODO colocar caso de filtro não quadrado
@@ -100,15 +101,15 @@ func parseFilter(f string) (res Filter, err error) {
 
 	rows := strings.Split(strings.TrimSuffix(strings.TrimPrefix(f, "filter=["), "]"), ";")
 
-	res.size.r = uint64(len(rows))
+	res.Size.R = uint64(len(rows))
 
 	var numbers []string
 
 	for i := range rows {
 		aux := strings.Split(rows[i], ",")
 
-		if uint64(len(aux)) > res.size.c {
-			res.size.c = uint64(len(aux))
+		if uint64(len(aux)) > res.Size.C {
+			res.Size.C = uint64(len(aux))
 		}
 
 		numbers = append(numbers, aux...)
@@ -142,7 +143,29 @@ func parseFilter(f string) (res Filter, err error) {
 		return Filter{}, err
 	}
 
-	res.filter = mat.NewVecDense(len(numbers), filterNumbers)
+	res.Filter = mat.NewVecDense(len(numbers), filterNumbers)
+
+	return
+}
+
+func ParseMeanfilter(input string) (res Filter, err error) {
+	// format 5x5
+
+	if _, err = fmt.Sscanf(input, "%dx%d", &res.Size.R, &res.Size.C); err != nil {
+		return Filter{}, err
+	}
+
+	if res.Size.R%2 == 0 || res.Size.C%2 == 0 {
+		return Filter{}, errors.New("os filtro de média deve possuir componentes ímpares")
+	}
+
+	val := make([]float64, res.Size.R*res.Size.C)
+
+	for i := range val {
+		val[i] = 1 / (float64(res.Size.R * res.Size.C))
+	}
+
+	res.Filter = mat.NewVecDense(int(res.Size.R*res.Size.C), val)
 
 	return
 }

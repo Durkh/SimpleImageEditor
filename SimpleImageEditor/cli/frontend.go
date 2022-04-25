@@ -1,49 +1,108 @@
 package cli
 
 import (
-	"bufio"
+	image "SimpleImageEditor/image"
+	"SimpleImageEditor/parser"
 	"fmt"
-	"log"
 	"os"
 )
 
 func Run() {
 
 	if len(os.Args) < 2 {
-		noParameters()
+		Exit("digite os argumentos")
 	}
 
-	parameters()
-
-}
-
-func noParameters() {
-
 	var (
-		input string
-		stdin = bufio.NewReader(os.Stdin)
+		args       = os.Args[2:]
+		err        error
+		multipart  bool
+		operations []rune
+		im         image.Image
+		config     map[string]interface{}
+		meanFilter parser.Filter
 	)
 
-	for {
-		fmt.Println("\nDigite o path para a imagem a ser editada")
-		_, err := fmt.Scanf("%100s", &input)
-		if err != nil {
-			log.Fatal(err)
-		}
-		if input == "quit" {
-			break
-		}
+	for i := range args {
 
-		if n, err := stdin.Discard(stdin.Buffered()); err != nil && n > 0 {
-			fmt.Println("você excedeu o limite de caracteres para o path, por favor mantenha menor que 100 caracteres")
+		if multipart {
+			multipart = false
 			continue
 		}
 
-		fmt.Println(input)
+		switch args[i] {
+		case "-I":
+			if i+1 < len(args) {
+				Exit("error: digite o caminho da imagem")
+			}
+
+			if err := im.Open(args[i+1]); err != nil {
+				panic(err)
+			}
+
+			multipart = true
+		case "-N":
+			operations = append(operations, 'N')
+		case "-F":
+			operations = append(operations, 'F')
+
+			if i+1 < len(args) {
+				Exit("error: digite o caminho do filtro")
+			}
+
+			config = parser.ParseFileConfig(args[i+1])
+
+			multipart = true
+		case "-M":
+			operations = append(operations, 'M')
+
+			meanFilter, err = parser.ParseMeanfilter(args[i+1])
+
+			multipart = true
+		case "YIQ":
+			operations = append(operations, 'Y')
+		case "RGB":
+			operations = append(operations, 'R')
+		}
+	}
+
+	if im.Name == "" {
+		Exit("carregue uma imagem")
+	}
+
+	for _, v := range operations {
+		switch v {
+		case 'Y':
+			if im, err = im.YIQ(); err != nil {
+				Exit(err.Error())
+			}
+		case 'R':
+			if im, err = im.RGB(); err != nil {
+				Exit(err.Error())
+			}
+		case 'N':
+			if im, err = im.Negative(); err != nil {
+				Exit(err.Error())
+			}
+		case 'M':
+			if im, err = im.Mean(meanFilter); err != nil {
+				Exit(err.Error())
+			}
+		case 'F':
+			if im, err = im.Filter(config); err != nil {
+				Exit(err.Error())
+			}
+		}
+	}
+
+	//TODO save image
+	if err = image.SaveImage(im); err != nil {
+		Exit(err.Error())
 	}
 
 }
 
-func parameters() {
-
+func Exit(err string) {
+	fmt.Println(err)
+	os.Exit(1)
 }
