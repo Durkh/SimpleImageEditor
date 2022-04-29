@@ -13,7 +13,7 @@ type RGB struct {
 
 func (i RGB) ColorModel() color.Model {
 
-	return color.ModelFunc(YIQModel)
+	return color.ModelFunc(RGBModel)
 }
 
 // RGBModel convert function

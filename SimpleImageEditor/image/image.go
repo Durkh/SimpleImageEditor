@@ -117,7 +117,9 @@ func (i Image) YIQ() (Image, error) {
 		cm = res.Image.ColorModel()
 	)
 
-	convert(bounds, func(x int, y int) { res.setter()(x, y, cm.Convert(i.Image.At(x, y))) })
+	convert(bounds, func(x int, y int) {
+		res.setter()(x, y, cm.Convert(i.Image.At(x, y)))
+	})
 
 	return res, nil
 }
@@ -141,7 +143,9 @@ func (i Image) RGB() (Image, error) {
 		cm = res.Image.ColorModel()
 	)
 
-	convert(bounds, func(x, y int) { res.setter()(x, y, cm.Convert(i.Image.At(x, y))) })
+	convert(bounds, func(x, y int) {
+		res.setter()(x, y, cm.Convert(i.Image.At(x, y)))
+	})
 
 	return res, nil
 }
@@ -167,7 +171,9 @@ func (i Image) Negative() (Image, error) {
 		ImageFormat: ImageFormatPNG,
 	}
 
-	convert(bounds, func(x, y int) { res.setter()(x, y, i.Image.At(x, y).(pixel.Color).Negative()) })
+	convert(bounds, func(x, y int) {
+		res.setter()(x, y, i.Image.At(x, y).(pixel.Color).Negative())
+	})
 
 	return res, nil
 
@@ -215,7 +221,7 @@ func (i Image) Filter(filterArgs map[string]interface{}) (Image, error) {
 
 				if *ch < 0 {
 					*ch = 0
-				} else if r > 0xff {
+				} else if *ch > 0xff {
 					*ch = 0xff
 				}
 			}
