@@ -30,13 +30,11 @@ func YIQModel(c color.Color) color.Color {
 	)
 
 	//https://en.wikipedia.org/wiki/YIQ#From_RGB_to_YIQ
-	yiq := pixel.YIQ{
+	return pixel.YIQ{
 		Y: .299*realR + .587*realG + .114*realB,
 		I: .596*realR - .274*realG - .322*realB,
 		Q: .211*realR - .523*realG + .312*realB,
 	}
-
-	return yiq
 }
 
 func (i YIQ) Bounds() image.Rectangle {

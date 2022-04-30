@@ -14,13 +14,13 @@ func Run() {
 	}
 
 	var (
-		args       = os.Args[1:]
-		err        error
-		multipart  bool
-		operations []rune
-		im         image.Image
-		config     map[string]interface{}
-		meanFilter parser.Filter
+		args         = os.Args[1:]
+		err          error
+		multipart    bool
+		operations   []rune
+		im           image.Image
+		config       map[string]interface{}
+		medianFilter parser.Filter
 	)
 
 	for i := range args {
@@ -56,7 +56,7 @@ func Run() {
 		case "-M":
 			operations = append(operations, 'M')
 
-			meanFilter, err = parser.ParseMeanfilter(args[i+1])
+			medianFilter, err = parser.ParseMedianfilter(args[i+1])
 
 			multipart = true
 		case "YIQ":
@@ -85,7 +85,7 @@ func Run() {
 				Exit(err.Error())
 			}
 		case 'M':
-			if im, err = im.Mean(meanFilter); err != nil {
+			if im, err = im.Mean(medianFilter); err != nil {
 				Exit(err.Error())
 			}
 		case 'F':

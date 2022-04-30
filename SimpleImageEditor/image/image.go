@@ -14,6 +14,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,8 +25,8 @@ type pixelFormat byte
 type imageFormat byte
 
 const (
-	PixelFormatRGB pixelFormat = iota
-	PixelFormatYIQ
+	pixelFormatRGB pixelFormat = iota
+	pixelFormatYIQ
 
 	ImageFormatPNG imageFormat = iota
 	ImageFormatTIF
@@ -79,7 +80,7 @@ func (i *Image) Open(path string) (err error) {
 
 	i.Name = strings.Split(filepath.Base(path), ".")[0]
 
-	i.PixelFormat = PixelFormatRGB
+	i.PixelFormat = pixelFormatRGB
 
 	return
 }
@@ -87,9 +88,9 @@ func (i *Image) Open(path string) (err error) {
 func (i *Image) setter() func(int, int, color.Color) {
 
 	switch i.PixelFormat {
-	case PixelFormatYIQ:
+	case pixelFormatYIQ:
 		return i.Image.(*YIQ).Set
-	case PixelFormatRGB:
+	case pixelFormatRGB:
 		return i.Image.(*RGB).Set
 	default:
 		log.Fatalf("error on image setter: %v", errors.New("invalid image pixel type"))
@@ -100,7 +101,7 @@ func (i *Image) setter() func(int, int, color.Color) {
 
 func (i Image) YIQ() (Image, error) {
 
-	if i.PixelFormat == PixelFormatYIQ {
+	if i.PixelFormat == pixelFormatYIQ {
 		return Image{}, errors.New("image already in YIQ format")
 	}
 
@@ -110,7 +111,7 @@ func (i Image) YIQ() (Image, error) {
 		res = Image{
 			Image:       NewYIQ(bounds.Max.X, bounds.Max.Y),
 			Name:        i.Name,
-			PixelFormat: PixelFormatYIQ,
+			PixelFormat: pixelFormatYIQ,
 			ImageFormat: ImageFormatPNG,
 		}
 
@@ -126,7 +127,7 @@ func (i Image) YIQ() (Image, error) {
 
 func (i Image) RGB() (Image, error) {
 
-	if i.PixelFormat == PixelFormatRGB {
+	if i.PixelFormat == pixelFormatRGB {
 		return Image{}, errors.New("image already in RGB format")
 	}
 
@@ -136,7 +137,7 @@ func (i Image) RGB() (Image, error) {
 		res = Image{
 			Image:       NewRGB(bounds.Max.X, bounds.Max.Y),
 			Name:        i.Name,
-			PixelFormat: PixelFormatRGB,
+			PixelFormat: pixelFormatRGB,
 			ImageFormat: ImageFormatPNG,
 		}
 
@@ -158,9 +159,9 @@ func (i Image) Negative() (Image, error) {
 	)
 
 	switch i.PixelFormat {
-	case PixelFormatYIQ:
+	case pixelFormatYIQ:
 		image = NewYIQ(bounds.Max.X, bounds.Max.Y)
-	case PixelFormatRGB:
+	case pixelFormatRGB:
 		image = NewRGB(bounds.Max.X, bounds.Max.Y)
 	}
 
@@ -187,7 +188,7 @@ func (i Image) Filter(filterArgs map[string]interface{}) (Image, error) {
 		res = Image{
 			Image:       NewYIQ(bounds.Max.X, bounds.Max.Y),
 			Name:        i.Name + "_filter",
-			PixelFormat: PixelFormatYIQ,
+			PixelFormat: pixelFormatYIQ,
 			ImageFormat: ImageFormatPNG,
 		}
 
@@ -195,23 +196,28 @@ func (i Image) Filter(filterArgs map[string]interface{}) (Image, error) {
 			m int
 			n int
 		})
+
+		vecPiv = uint(math.Floor(
+			float64(filterArgs["filter"].(parser.Filter).Size.R+filterArgs["filter"].(parser.Filter).Size.C) / float64(2),
+		))
 	)
 
 	convert(bounds, func(x int, y int) {
 
 		var (
-			vectorR, vectorG, vectorB = makeVector(x, y, bounds, uint(pivot.m), uint(pivot.n),
+			vectorR, vectorG, vectorB = makeVector(x, y, bounds, uint(pivot.m), uint(pivot.n), vecPiv,
 				filterArgs["filter"].(parser.Filter),
-				func(channels [3][]float64, xIt, yIt int) {
-					channels[0][xIt+yIt] = float64(i.Image.At(x, y).(pixel.RGB).C.R)
-					channels[1][xIt+yIt] = float64(i.Image.At(x, y).(pixel.RGB).C.G)
-					channels[2][xIt+yIt] = float64(i.Image.At(x, y).(pixel.RGB).C.B)
+				func(channels [3][]float64, vecPiv, vecItr uint, xIt, yIt int) {
+					channels[0][vecPiv-vecItr] = float64(i.Image.At(xIt, yIt).(pixel.RGB).C.R)
+					channels[1][vecPiv-vecItr] = float64(i.Image.At(xIt, yIt).(pixel.RGB).C.G)
+					channels[2][vecPiv-vecItr] = float64(i.Image.At(xIt, yIt).(pixel.RGB).C.B)
 				})
 
 			r, g, b float64
 
 			wg = sync.WaitGroup{}
 
+			//apply filter and check for bounds
 			apply = func(ch *float64, v *mat.VecDense) {
 				defer wg.Done()
 
@@ -219,6 +225,7 @@ func (i Image) Filter(filterArgs map[string]interface{}) (Image, error) {
 
 				*ch += float64(filterArgs["offset"].(uint64))
 
+				//bound check
 				if *ch < 0 {
 					*ch = 0
 				} else if *ch > 0xff {
@@ -235,6 +242,7 @@ func (i Image) Filter(filterArgs map[string]interface{}) (Image, error) {
 
 		wg.Wait()
 
+		//assign the new values
 		res.Image.(*RGB).Set(x, y, pixel.RGB{
 			C: color.RGBA{
 				R: uint8(math.Round(r)),
@@ -250,18 +258,23 @@ func (i Image) Filter(filterArgs map[string]interface{}) (Image, error) {
 
 func (i Image) Mean(filter parser.Filter) (Image, error) {
 
+	if i.PixelFormat != pixelFormatYIQ {
+		return Image{}, errors.New("image has to be in YIQ")
+	}
+
 	var (
 		//pivot is the middle element
 		//the first element in the array is pivot-pivot and the last one is pivot+pivot
 		pivotX = uint(math.Floor(float64(filter.Size.R) / float64(2)))
 		pivotY = uint(math.Floor(float64(filter.Size.C) / float64(2)))
+		vecPiv = uint(math.Floor(float64(filter.Size.R*filter.Size.C) / float64(2)))
 
 		bounds = i.Image.Bounds()
 
 		res = Image{
 			Image:       NewYIQ(bounds.Max.X, bounds.Max.Y),
 			Name:        i.Name + "_mean",
-			PixelFormat: PixelFormatYIQ,
+			PixelFormat: pixelFormatYIQ,
 			ImageFormat: ImageFormatPNG,
 		}
 	)
@@ -269,15 +282,21 @@ func (i Image) Mean(filter parser.Filter) (Image, error) {
 	convert(bounds, func(x int, y int) {
 
 		var (
-			orig         = i.Image.At(x, y).(pixel.YIQ)
-			vector, _, _ = makeVector(x, y, bounds, pivotX, pivotY, filter,
-				func(channels [3][]float64, xIt, yIt int) {
-					channels[0][xIt+yIt] = i.Image.At(x, y).(pixel.YIQ).Y
-				})
+			orig    = i.Image.At(x, y).(pixel.YIQ)
+			numbers *[]float64
 		)
 
+		makeVector(x, y, bounds, pivotX, pivotY, vecPiv, filter,
+			func(channels [3][]float64, vecPiv, vecItr uint, xIt, yIt int) {
+				//get the image numbers; I'm not using the function to assign to the image vectors
+				channels[0][vecPiv-vecItr] = i.Image.At(xIt, yIt).(pixel.YIQ).Y
+				numbers = &channels[0]
+			})
+
+		sort.Float64s(*numbers)
+
 		res.Image.(*YIQ).Set(x, y, pixel.YIQ{
-			Y: mat.Dot(vector, filter.Filter),
+			Y: (*numbers)[len(*numbers)/2],
 			I: orig.I,
 			Q: orig.Q,
 		})
@@ -310,10 +329,15 @@ func convert(bounds im.Rectangle, closure func(int, int)) {
 	wg.Wait()
 }
 
-func makeVector(x, y int, bounds im.Rectangle, pivotX, pivotY uint, filter parser.Filter, assigner func([3][]float64, int, int)) (*mat.VecDense, *mat.VecDense, *mat.VecDense) {
+type assigner func([3][]float64, uint, uint, int, int)
+
+func makeVector(x, y int, bounds im.Rectangle, pivotX, pivotY, vecPiv uint, filter parser.Filter, assigner assigner) (*mat.VecDense, *mat.VecDense, *mat.VecDense) {
 
 	var (
+		//true image values
 		imageValues [3][]float64
+		//vector iterator, goes from [vecPiv -> -vecPiv]
+		vecItr = vecPiv
 	)
 
 	imageValues[0] = make([]float64, filter.Size.R*filter.Size.C)
@@ -322,19 +346,26 @@ func makeVector(x, y int, bounds im.Rectangle, pivotX, pivotY uint, filter parse
 
 	for xIt := x - int(pivotX); xIt <= x+int(pivotX); xIt++ {
 		for yIt := y - int(pivotY); yIt <= y+int(pivotY); yIt++ {
+			//if it goes out of bounds, set the value to zero
 			if xIt < bounds.Min.X || xIt > bounds.Max.X || yIt < bounds.Min.Y || yIt > bounds.Max.Y {
-				imageValues[0][xIt+yIt] = 0
-				imageValues[1][xIt+yIt] = 0
-				imageValues[2][xIt+yIt] = 0
+				//as the arrays are already zero initialized, I just need to go to the other check
+
+				//change the array iterator
+				vecItr--
+
 				continue
 			}
 
-			assigner(imageValues, xIt, yIt)
+			//assign the correct value to the vector
+			assigner(imageValues, vecPiv, vecItr, xIt, yIt)
 
+			vecItr--
 		}
 	}
 
-	return mat.NewVecDense(len(imageValues[0]), imageValues[0]), mat.NewVecDense(len(imageValues[0]), imageValues[0]), mat.NewVecDense(len(imageValues[0]), imageValues[0])
+	return mat.NewVecDense(len(imageValues[0]), imageValues[0]),
+		mat.NewVecDense(len(imageValues[1]), imageValues[1]),
+		mat.NewVecDense(len(imageValues[2]), imageValues[2])
 }
 
 //TODO adjust
@@ -347,13 +378,13 @@ func SaveImage(im Image) error {
 	)
 
 	switch im.PixelFormat {
-	case PixelFormatYIQ:
+	case pixelFormatYIQ:
 		suffix = "_YIQ"
 		im, err = im.RGB()
 		if err != nil {
 			return err
 		}
-	case PixelFormatRGB:
+	case pixelFormatRGB:
 		suffix = "_RGB"
 	}
 

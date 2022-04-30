@@ -158,7 +158,7 @@ func parseFilter(f string) (res Filter, err error) {
 	return
 }
 
-func ParseMeanfilter(input string) (res Filter, err error) {
+func ParseMedianfilter(input string) (res Filter, err error) {
 	// format 5x5
 
 	if _, err = fmt.Sscanf(input, "%dx%d", &res.Size.R, &res.Size.C); err != nil {
