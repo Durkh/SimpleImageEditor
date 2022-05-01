@@ -13,12 +13,23 @@ import (
 func ParseFileConfig(path string) (args map[string]interface{}) {
 
 	LexerInit(path)
+	args = make(map[string]interface{})
 
 	var tok *Token
 
+parseLoop:
 	for {
-		if tok = NextToken(); tok.tokenType == tokenEOF {
-			break
+
+		tok = NextToken()
+
+		switch tok.tokenType {
+
+		case tokenEOF:
+			break parseLoop
+		case tokenComment:
+			continue
+		case tokenError:
+			panic(errors.New(tok.value))
 		}
 
 		p, err := parseToken(tok)
@@ -41,10 +52,7 @@ func ParseFileConfig(path string) (args map[string]interface{}) {
 		panic("not enough arguments in config file")
 	}
 
-	if piv, fil := pivot.(struct {
-		m int
-		n int
-	}), filter.(Filter).Size; uint64(piv.m) > fil.R || uint64(piv.n) > fil.C {
+	if piv, fil := pivot.(Pivot), filter.(Filter).Size; uint64(piv.M) > fil.R || uint64(piv.N) > fil.C {
 		panic("filtro inválido")
 	}
 
@@ -59,8 +67,6 @@ func parseToken(tok *Token) (map[string]interface{}, error) {
 	)
 
 	switch tok.tokenType {
-	case tokenComment:
-		return nil, nil
 	case tokenFilter:
 		if res["filter"], err = parseFilter(tok.value); err != nil {
 			return nil, err
@@ -69,21 +75,18 @@ func parseToken(tok *Token) (map[string]interface{}, error) {
 
 		var x, y int
 
-		if x, err = strconv.Atoi(string(tok.value[8])); err != nil {
+		if x, err = strconv.Atoi(string(tok.value[7])); err != nil {
 			return nil, err
 		}
 
-		if y, err = strconv.Atoi(string(tok.value[10])); err != nil {
+		if y, err = strconv.Atoi(string(tok.value[9])); err != nil {
 			return nil, err
 		}
 
-		res["pivot"] = struct {
-			m int
-			n int
-		}{x, y}
+		res["pivot"] = Pivot{x, y}
 	case tokenOffset:
 
-		var offset int64
+		var offset uint64
 
 		_, err = fmt.Sscanf(tok.value, "offset=%d", &offset)
 		if err != nil {
@@ -96,6 +99,11 @@ func parseToken(tok *Token) (map[string]interface{}, error) {
 	}
 
 	return res, nil
+}
+
+type Pivot struct {
+	M int
+	N int
 }
 
 type Filter struct {

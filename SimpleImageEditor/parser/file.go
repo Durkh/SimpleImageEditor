@@ -24,8 +24,6 @@ func GetConfigReader(filename string) *config {
 		os.Exit(1)
 	}
 
-	defer f.Close()
-
 	cfg.reader = bufio.NewReaderSize(f, 2048)
 	info, _ := f.Stat()
 	cfg.Size = uint64(info.Size())

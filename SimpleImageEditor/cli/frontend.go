@@ -59,6 +59,12 @@ func Run() {
 			medianFilter, err = parser.ParseMedianfilter(args[i+1])
 
 			multipart = true
+		case "-S":
+			if config == nil {
+				Exit("error: você não está passando um filtro")
+			}
+
+			config["sobel"] = true
 		case "YIQ":
 			operations = append(operations, 'Y')
 		case "RGB":

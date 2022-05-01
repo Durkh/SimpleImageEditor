@@ -44,13 +44,13 @@ func fetchFragment() string {
 	)
 
 	for incomplete {
-		if b, incomplete, err = buffer.reader.ReadLine(); err != nil {
+		if b, incomplete, err = buffer.reader.ReadLine(); err == nil {
 			strBuf.Write(b)
 		} else if errors.Is(err, io.EOF) {
 			break
+		} else {
+			log.Fatalf("error reading file line: %v", err.Error())
 		}
-		log.Fatalf("error reading file line")
-
 	}
 
 	return strBuf.String()
@@ -67,7 +67,7 @@ func NextToken() (tok *Token) {
 
 	fragment := fetchFragment()
 
-	if ok, err = regexp.MatchString(`^#(.+)$`, fragment); err == nil && ok {
+	if ok, err = regexp.MatchString(`^#(.*)$`, fragment); err == nil && ok {
 		tok.tokenType = tokenComment
 	} else if ok, err = regexp.MatchString(`^filter=\[`, fragment); err == nil && ok {
 
@@ -82,7 +82,7 @@ func NextToken() (tok *Token) {
 			for !end {
 				nFrag := fetchFragment()
 				strBuf.Write([]byte(nFrag))
-				if ok, err := regexp.MatchString(`(\s*((\d+(\.\d+)?)|\.\d+),)+\s*((\d+(\.\d+)?)|\.\d+)([;|]])$`, strings.TrimSpace(nFrag)); err == nil && !ok {
+				if ok, err := regexp.MatchString(`(\s*((\d+(\.\d+)?)|\.\d+)[,|;])+\s*((\d+(\.\d+)?)|\.\d+)([;|\]])$`, strings.TrimSpace(nFrag)); err == nil && !ok {
 
 					tok.tokenType = tokenError
 					tok.value = "error on line: \t" + nFrag + "\n invalid filter syntax"
