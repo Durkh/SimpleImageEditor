@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"SimpleImageEditor/demo"
 	image "SimpleImageEditor/image"
 	"SimpleImageEditor/parser"
 	"fmt"
@@ -69,6 +70,17 @@ func Run() {
 			operations = append(operations, 'Y')
 		case "RGB":
 			operations = append(operations, 'R')
+
+		case "DEMO":
+			if i+2 > len(args) {
+				Exit("error: digite o caminho da imagem e do template")
+			}
+
+			if err = demo.Demo(args[i+1], args[i+2]); err != nil {
+				Exit(err.Error())
+			}
+
+			os.Exit(0)
 		}
 	}
 

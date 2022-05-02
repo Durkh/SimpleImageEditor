@@ -8,3 +8,5 @@ require (
 )
 
 require gonum.org/v1/gonum v0.11.0
+
+require gocv.io/x/gocv v0.30.0 // indirect
