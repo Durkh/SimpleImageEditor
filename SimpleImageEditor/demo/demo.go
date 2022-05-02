@@ -41,7 +41,7 @@ func Demo(picPath, corrPath string) (err error) {
 	})
 
 	if err = group.Wait(); err != nil {
-		return nil
+		return err
 	}
 
 	////////////////////////////////////
@@ -55,14 +55,18 @@ func Demo(picPath, corrPath string) (err error) {
 		return err
 	}
 
-	//add rectangle to the image
-	res1 = pic.Clone()
-	cv.Rectangle(&res1, region, rectColor, 2)
+	group.Go(func() error {
+		//add rectangle to the image
+		res1 = pic.Clone()
+		cv.Rectangle(&res1, region, rectColor, 2)
 
-	// save the first image
-	if ok := cv.IMWrite("demo_correlation_1_"+strconv.Itoa(int(time.Now().Unix()))+".png", res1); !ok {
-		return errors.New("error: não foi possível salvar a primeira imagem")
-	}
+		// save the first image
+		if ok := cv.IMWrite("demo_correlation_1_"+strconv.Itoa(int(time.Now().Unix()))+".png", res1); !ok {
+			return errors.New("error: não foi possível salvar a primeira imagem")
+		}
+
+		return nil
+	})
 
 	//remove the correlation
 	cv.Rectangle(&grey, region, color.RGBA{}, int(cv.Filled))
@@ -72,6 +76,9 @@ func Demo(picPath, corrPath string) (err error) {
 		return err
 	}
 
+	if err = group.Wait(); err != nil {
+		return err
+	}
 	//add rectangle to the image
 	cv.Rectangle(&pic, region, rectColor, 2)
 

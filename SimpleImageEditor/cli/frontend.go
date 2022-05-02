@@ -113,7 +113,6 @@ func Run() {
 		}
 	}
 
-	//TODO save image
 	if err = image.SaveImage(im); err != nil {
 		Exit(err.Error())
 	}

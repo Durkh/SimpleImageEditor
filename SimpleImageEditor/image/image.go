@@ -373,8 +373,6 @@ func (i Image) Mean(filter parser.Filter) (Image, error) {
 			PixelFormat: pixelFormatYIQ,
 			ImageFormat: ImageFormatPNG,
 		}
-
-		once sync.Once
 	)
 
 	iterate(bounds, func(x int, y int) {
@@ -390,9 +388,7 @@ func (i Image) Mean(filter parser.Filter) (Image, error) {
 				//get the image numbers; I'm not using the function to assign to the image vectors
 				channels[0][vecPiv-vecItr] = i.Image.At(xIt, yIt).(pixel.YIQ).Y
 				//get the array address, only needs to be performed once
-				once.Do(func() {
-					numbers = &channels[0]
-				})
+				numbers = &channels[0]
 			})
 
 		sort.Float64s(*numbers)
@@ -477,8 +473,6 @@ func makeVector(x, y int, bounds im.Rectangle, pivotX, pivotY, vecPiv uint, filt
 		mat.NewVecDense(len(imageValues[2]), imageValues[2])
 }
 
-//TODO adjust
-// if image is YIQ convert to RGB
 func SaveImage(im Image) error {
 
 	var (
