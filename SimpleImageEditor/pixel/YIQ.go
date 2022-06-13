@@ -18,9 +18,9 @@ func (color YIQ) RGBA() (r, g, b, a uint32) {
 		y, i, q = color.Y, color.I, color.Q
 	)
 
-	R := y + .956*i + .621*q
-	G := y - .272*i - .647*q
-	B := y - 1.106*i + 1.703*q
+	R := math.Round(y + .956*i + .621*q)
+	G := math.Round(y - .272*i - .647*q)
+	B := math.Round(y - 1.106*i + 1.703*q)
 	a = 0xff
 
 	bounds(&R, &G, &B)

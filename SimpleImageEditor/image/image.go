@@ -25,8 +25,8 @@ type pixelFormat byte
 type imageFormat byte
 
 const (
-	pixelFormatRGB pixelFormat = iota
-	pixelFormatYIQ
+	PixelFormatRGB pixelFormat = iota
+	PixelFormatYIQ
 
 	ImageFormatPNG imageFormat = iota
 	ImageFormatTIF
@@ -80,7 +80,7 @@ func (i *Image) Open(path string) (err error) {
 
 	i.Name = strings.Split(filepath.Base(path), ".")[0]
 
-	i.PixelFormat = pixelFormatRGB
+	i.PixelFormat = PixelFormatRGB
 
 	return
 }
@@ -88,9 +88,9 @@ func (i *Image) Open(path string) (err error) {
 func (i *Image) setter() func(int, int, color.Color) {
 
 	switch i.PixelFormat {
-	case pixelFormatYIQ:
+	case PixelFormatYIQ:
 		return i.Image.(*YIQ).Set
-	case pixelFormatRGB:
+	case PixelFormatRGB:
 		return i.Image.(*RGB).Set
 	default:
 		log.Fatalf("error on image setter: %v", errors.New("invalid image pixel type"))
@@ -101,7 +101,7 @@ func (i *Image) setter() func(int, int, color.Color) {
 
 func (i Image) YIQ() (Image, error) {
 
-	if i.PixelFormat == pixelFormatYIQ {
+	if i.PixelFormat == PixelFormatYIQ {
 		return Image{}, errors.New("image already in YIQ format")
 	}
 
@@ -111,7 +111,7 @@ func (i Image) YIQ() (Image, error) {
 		res = Image{
 			Image:       NewYIQ(bounds.Max.X, bounds.Max.Y),
 			Name:        i.Name,
-			PixelFormat: pixelFormatYIQ,
+			PixelFormat: PixelFormatYIQ,
 			ImageFormat: ImageFormatPNG,
 		}
 
@@ -127,7 +127,7 @@ func (i Image) YIQ() (Image, error) {
 
 func (i Image) RGB() (Image, error) {
 
-	if i.PixelFormat == pixelFormatRGB {
+	if i.PixelFormat == PixelFormatRGB {
 		return Image{}, errors.New("image already in RGB format")
 	}
 
@@ -137,7 +137,7 @@ func (i Image) RGB() (Image, error) {
 		res = Image{
 			Image:       NewRGB(bounds.Max.X, bounds.Max.Y),
 			Name:        i.Name,
-			PixelFormat: pixelFormatRGB,
+			PixelFormat: PixelFormatRGB,
 			ImageFormat: ImageFormatPNG,
 		}
 
@@ -159,9 +159,9 @@ func (i Image) Negative() (Image, error) {
 	)
 
 	switch i.PixelFormat {
-	case pixelFormatYIQ:
+	case PixelFormatYIQ:
 		image = NewYIQ(bounds.Max.X, bounds.Max.Y)
-	case pixelFormatRGB:
+	case PixelFormatRGB:
 		image = NewRGB(bounds.Max.X, bounds.Max.Y)
 	}
 
@@ -188,7 +188,7 @@ func (i Image) Filter(filterArgs map[string]interface{}) (Image, error) {
 		res = Image{
 			Image:       NewRGB(bounds.Max.X, bounds.Max.Y),
 			Name:        i.Name + "_filter",
-			PixelFormat: pixelFormatRGB,
+			PixelFormat: PixelFormatRGB,
 			ImageFormat: ImageFormatPNG,
 		}
 
@@ -352,9 +352,9 @@ func (i Image) Filter(filterArgs map[string]interface{}) (Image, error) {
 	return res, nil
 }
 
-func (i Image) Mean(filter parser.Filter) (Image, error) {
+func (i Image) Median(filter parser.Filter) (Image, error) {
 
-	if i.PixelFormat != pixelFormatYIQ {
+	if i.PixelFormat != PixelFormatYIQ {
 		return Image{}, errors.New("image has to be in YIQ")
 	}
 
@@ -370,7 +370,7 @@ func (i Image) Mean(filter parser.Filter) (Image, error) {
 		res = Image{
 			Image:       NewYIQ(bounds.Max.X, bounds.Max.Y),
 			Name:        i.Name + "_mean",
-			PixelFormat: pixelFormatYIQ,
+			PixelFormat: PixelFormatYIQ,
 			ImageFormat: ImageFormatPNG,
 		}
 	)
@@ -481,13 +481,13 @@ func SaveImage(im Image) error {
 	)
 
 	switch im.PixelFormat {
-	case pixelFormatYIQ:
+	case PixelFormatYIQ:
 		suffix = "_YIQ"
 		im, err = im.RGB()
 		if err != nil {
 			return err
 		}
-	case pixelFormatRGB:
+	case PixelFormatRGB:
 		suffix = "_RGB"
 	}
 

@@ -103,7 +103,7 @@ func Run() {
 				Exit(err.Error())
 			}
 		case 'M':
-			if im, err = im.Mean(medianFilter); err != nil {
+			if im, err = im.Median(medianFilter); err != nil {
 				Exit(err.Error())
 			}
 		case 'F':
