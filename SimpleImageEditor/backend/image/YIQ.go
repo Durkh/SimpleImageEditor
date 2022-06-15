@@ -1,7 +1,7 @@
 package egdImage
 
 import (
-	"SimpleImageEditor/pixel"
+	"SimpleImageEditor/backend/pixel"
 	"image"
 	"image/color"
 )

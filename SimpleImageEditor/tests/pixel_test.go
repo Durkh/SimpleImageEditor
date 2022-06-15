@@ -1,8 +1,8 @@
 package tests
 
 import (
-	egdImage "SimpleImageEditor/image"
-	"SimpleImageEditor/pixel"
+	"SimpleImageEditor/backend/image"
+	"SimpleImageEditor/backend/pixel"
 	"image/color"
 	"math/rand"
 	"testing"
@@ -38,6 +38,27 @@ func TestPixelConversion(T *testing.T) {
 		}
 		if val := uint8(b >> 8); val != expected[i].B {
 			T.Errorf("B diferente em %d, \tesperado: %d, obtido: %d", i, expected[i].B, val)
+		}
+	}
+
+}
+
+func TestBounds(T *testing.T) {
+
+	var (
+		targets = []pixel.YIQ{{-50, .0000000000000005, -771}, {423789, 980713245, 8972345}}
+	)
+
+	for i := range targets {
+		r, g, b, _ := targets[i].RGBA()
+		if r > 0xffff || (r>>8) > 0xff {
+			T.Error("erro de arredondamento no R")
+		}
+		if g > 0xffff || (r>>8) > 0xff {
+			T.Error("erro de arredondamento no G")
+		}
+		if b > 0xffff || (r>>8) > 0xff {
+			T.Error("erro de arredondamento no B")
 		}
 	}
 

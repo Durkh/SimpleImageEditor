@@ -1,8 +1,8 @@
 package tests
 
 import (
-	image "SimpleImageEditor/image"
-	"SimpleImageEditor/pixel"
+	"SimpleImageEditor/backend/image"
+	"SimpleImageEditor/backend/pixel"
 	"errors"
 	"fmt"
 	"sync"
@@ -11,7 +11,7 @@ import (
 
 func TestYIQ(T *testing.T) {
 
-	im := image.Image{}
+	im := egdImage.Image{}
 	if err := im.Open("../../Imagens/testpat.1k.color.tif"); err != nil {
 		T.Error(err)
 		panic(err)
@@ -35,7 +35,7 @@ func TestYIQ(T *testing.T) {
 				defer wg.Done()
 
 				for y := 0; y < YIQ.Image.Bounds().Max.Y; y++ {
-					old := image.YIQModel(im.Image.At(x, y))
+					old := egdImage.YIQModel(im.Image.At(x, y))
 
 					if n, o := YIQ.Image.At(x, y).(pixel.YIQ).Y, old.(pixel.YIQ).Y; n != o {
 						T.Error(errors.New(fmt.Sprintf("Y diferente em (%d, %d),\t\tesperado: %f, obtido: %f",

@@ -1,27 +1,27 @@
 package cli
 
 import (
-	"SimpleImageEditor/demo"
-	image "SimpleImageEditor/image"
-	"SimpleImageEditor/parser"
+	"SimpleImageEditor/backend/demo"
+	"SimpleImageEditor/backend/parser"
+	"SimpleImageEditor/common"
 	"fmt"
 	"os"
+	"sync"
 )
 
-func Run() {
+func Run(q chan<- rune, imPath chan<- common.Info, done chan<- bool, wg *sync.WaitGroup) {
+	defer wg.Done()
 
 	if len(os.Args) < 2 {
 		Exit("digite os argumentos")
 	}
 
 	var (
-		args         = os.Args[1:]
-		err          error
-		multipart    bool
-		operations   []rune
-		im           image.Image
-		config       map[string]interface{}
-		medianFilter parser.Filter
+		args       = os.Args[1:]
+		err        error
+		multipart  bool
+		operations []rune
+		imInfo     common.Info
 	)
 
 	for i := range args {
@@ -37,9 +37,7 @@ func Run() {
 				Exit("error: digite o caminho da imagem")
 			}
 
-			if err := im.Open(args[i+1]); err != nil {
-				panic(err)
-			}
+			imInfo.Name = args[i+1]
 
 			multipart = true
 		case "-N":
@@ -51,21 +49,21 @@ func Run() {
 				Exit("error: digite o caminho do filtro")
 			}
 
-			config = parser.ParseFileConfig(args[i+1])
+			imInfo.Options = parser.ParseFileConfig(args[i+1])
 
 			multipart = true
 		case "-M":
 			operations = append(operations, 'M')
 
-			medianFilter, err = parser.ParseMedianfilter(args[i+1])
+			imInfo.Filter, err = parser.ParseMedianfilter(args[i+1])
 
 			multipart = true
 		case "-S":
-			if config == nil {
+			if imInfo.Options == nil {
 				Exit("error: você não está passando um filtro")
 			}
 
-			config["sobel"] = true
+			imInfo.Options["sobel"] = true
 		case "YIQ":
 			operations = append(operations, 'Y')
 		case "RGB":
@@ -84,38 +82,17 @@ func Run() {
 		}
 	}
 
-	if im.Name == "" {
+	if imInfo.Name == "" {
 		Exit("carregue uma imagem")
 	}
 
+	imPath <- imInfo
+
 	for _, v := range operations {
-		switch v {
-		case 'Y':
-			if im, err = im.YIQ(); err != nil {
-				Exit(err.Error())
-			}
-		case 'R':
-			if im, err = im.RGB(); err != nil {
-				Exit(err.Error())
-			}
-		case 'N':
-			if im, err = im.Negative(); err != nil {
-				Exit(err.Error())
-			}
-		case 'M':
-			if im, err = im.Median(medianFilter); err != nil {
-				Exit(err.Error())
-			}
-		case 'F':
-			if im, err = im.Filter(config); err != nil {
-				Exit(err.Error())
-			}
-		}
+		q <- v
 	}
 
-	if err = image.SaveImage(im); err != nil {
-		Exit(err.Error())
-	}
+	done <- true
 
 }
 

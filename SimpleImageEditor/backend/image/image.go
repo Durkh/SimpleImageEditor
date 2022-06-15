@@ -1,8 +1,8 @@
 package egdImage
 
 import (
-	"SimpleImageEditor/parser"
-	"SimpleImageEditor/pixel"
+	"SimpleImageEditor/backend/parser"
+	pixel2 "SimpleImageEditor/backend/pixel"
 	"errors"
 	"golang.org/x/image/tiff"
 	"gonum.org/v1/gonum/mat"
@@ -75,7 +75,7 @@ func (i *Image) Open(path string) (err error) {
 	i.Image = NewRGB(bounds.Max.X, bounds.Max.Y)
 
 	iterate(i.Image.Bounds(), func(x int, y int) {
-		i.Image.(*RGB).Set(x, y, pixel.RGB{C: color.RGBAModel.Convert(old.At(x, y)).(color.RGBA)})
+		i.Image.(*RGB).Set(x, y, pixel2.RGB{C: color.RGBAModel.Convert(old.At(x, y)).(color.RGBA)})
 	})
 
 	i.Name = strings.Split(filepath.Base(path), ".")[0]
@@ -173,7 +173,7 @@ func (i Image) Negative() (Image, error) {
 	}
 
 	iterate(bounds, func(x, y int) {
-		res.setter()(x, y, i.Image.At(x, y).(pixel.Color).Negative())
+		res.setter()(x, y, i.Image.At(x, y).(pixel2.Color).Negative())
 	})
 
 	return res, nil
@@ -198,7 +198,7 @@ func (i Image) Filter(filterArgs map[string]interface{}) (Image, error) {
 
 		//default function to assign the RGB values
 		assignValues = func(res *Image, x, y int, r, g, b float64) {
-			res.Image.(*RGB).Set(x, y, pixel.RGB{
+			res.Image.(*RGB).Set(x, y, pixel2.RGB{
 				C: color.RGBA{
 					R: uint8(math.Round(r)),
 					G: uint8(math.Round(g)),
@@ -286,9 +286,9 @@ func (i Image) Filter(filterArgs map[string]interface{}) (Image, error) {
 				func(channels [3][]float64, vecPiv, vecItr uint, xIt, yIt int, vecWG *sync.WaitGroup) {
 					defer vecWG.Done()
 
-					channels[0][vecPiv-vecItr] = float64(i.Image.At(xIt, yIt).(pixel.RGB).C.R)
-					channels[1][vecPiv-vecItr] = float64(i.Image.At(xIt, yIt).(pixel.RGB).C.G)
-					channels[2][vecPiv-vecItr] = float64(i.Image.At(xIt, yIt).(pixel.RGB).C.B)
+					channels[0][vecPiv-vecItr] = float64(i.Image.At(xIt, yIt).(pixel2.RGB).C.R)
+					channels[1][vecPiv-vecItr] = float64(i.Image.At(xIt, yIt).(pixel2.RGB).C.G)
+					channels[2][vecPiv-vecItr] = float64(i.Image.At(xIt, yIt).(pixel2.RGB).C.B)
 				})
 
 			r, g, b float64
@@ -332,7 +332,7 @@ func (i Image) Filter(filterArgs map[string]interface{}) (Image, error) {
 	//histogram expansion calculation
 	if _, ok := filterArgs["sobel"]; ok {
 		iterate(bounds, func(x int, y int) {
-			res.Image.(*RGB).Set(x, y, pixel.RGB{
+			res.Image.(*RGB).Set(x, y, pixel2.RGB{
 				C: color.RGBA{
 					R: uint8(math.Round(
 						float64(imagefilteredChannels[0][x][y]-min[0]) * float64(255) /
@@ -378,7 +378,7 @@ func (i Image) Median(filter parser.Filter) (Image, error) {
 	iterate(bounds, func(x int, y int) {
 
 		var (
-			orig    = i.Image.At(x, y).(pixel.YIQ)
+			orig    = i.Image.At(x, y).(pixel2.YIQ)
 			numbers *[]float64
 		)
 
@@ -386,14 +386,14 @@ func (i Image) Median(filter parser.Filter) (Image, error) {
 			func(channels [3][]float64, vecPiv, vecItr uint, xIt, yIt int, wg *sync.WaitGroup) {
 				defer wg.Done()
 				//get the image numbers; I'm not using the function to assign to the image vectors
-				channels[0][vecPiv-vecItr] = i.Image.At(xIt, yIt).(pixel.YIQ).Y
+				channels[0][vecPiv-vecItr] = i.Image.At(xIt, yIt).(pixel2.YIQ).Y
 				//get the array address, only needs to be performed once
 				numbers = &channels[0]
 			})
 
 		sort.Float64s(*numbers)
 
-		res.Image.(*YIQ).Set(x, y, pixel.YIQ{
+		res.Image.(*YIQ).Set(x, y, pixel2.YIQ{
 			Y: (*numbers)[len(*numbers)/2],
 			I: orig.I,
 			Q: orig.Q,
